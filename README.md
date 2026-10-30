@@ -23,7 +23,7 @@ counted in full), localization, chart zoom, incremental rescans, exclusions and 
 
 ## Development
 
-Requires Xcode 27. Open `disk.xcodeproj`, or build from the command line:
+Runs on macOS 15 or later. Building requires Xcode 27. Open `disk.xcodeproj`, or build from the command line:
 
 ```bash
 xcodebuild -project disk.xcodeproj -scheme disk -destination 'platform=macOS' build
