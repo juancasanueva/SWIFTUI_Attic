@@ -185,6 +185,30 @@ import Testing
         #expect(policy.refusal(forPath: tmp.root.path + "/homelink/Downloads/big.iso") == nil)
     }
 
+    @Test func policySeesThroughSymlinksToUnreadableFolders() throws {
+        let tmp = try TemporaryTree()
+        defer { tmp.remove() }
+        try tmp.folder("home/Documents")
+        let home = tmp.root.path + "/home"
+        try FileManager.default.createSymbolicLink(
+            at: tmp.root.appendingPathComponent("homelink"), withDestinationURL: tmp.root.appendingPathComponent("home"))
+        let policy = TrashSafetyPolicy(homePath: home)
+        func lock(_ path: String, _ mode: Int) throws {
+            try FileManager.default.setAttributes([.posixPermissions: mode], ofItemAtPath: path)
+        }
+        defer {
+            try? lock(home, 0o755)
+            try? lock(home + "/Documents", 0o755)
+        }
+
+        try lock(home + "/Documents", 0)
+        #expect(policy.refusal(forPath: tmp.root.path + "/homelink/Documents") != nil, "the folder itself is unreadable")
+
+        try lock(home + "/Documents", 0o755)
+        try lock(home, 0)
+        #expect(policy.refusal(forPath: tmp.root.path + "/homelink/Documents") != nil, "its parent cannot be searched")
+    }
+
     @Test func aSymlinkItselfIsJudgedByItsOwnLocation() throws {
         let tmp = try TemporaryTree()
         defer { tmp.remove() }

@@ -54,21 +54,38 @@ nonisolated struct TrashSafetyPolicy: Sendable {
 
     /// The path the file system itself reports, with symlinks in the parent folders resolved
     /// and the real capitalization. A symlink stays itself, because trashing one moves only
-    /// the link. Whatever does not exist is kept as written below its nearest real parent.
+    /// the link. Whatever cannot be opened is kept as written below its real parent.
     private static func canonical(_ path: String) -> String {
         guard path != "/", !path.isEmpty else { return "/" }
         var info = stat()
-        if lstat(path, &info) != 0 || info.st_mode & S_IFMT == S_IFLNK {
-            let nsPath = path as NSString
-            let parent = canonical(nsPath.deletingLastPathComponent)
-            return (parent == "/" ? "" : parent) + "/" + nsPath.lastPathComponent
+        if lstat(path, &info) == 0, info.st_mode & S_IFMT != S_IFLNK, let reported = reportedPath(path) {
+            return reported
         }
+        return inResolvedParent(path)
+    }
+
+    private static func inResolvedParent(_ path: String) -> String {
+        let nsPath = path as NSString
+        let parent = resolvedFolder(nsPath.deletingLastPathComponent)
+        return (parent == "/" ? "" : parent) + "/" + nsPath.lastPathComponent
+    }
+
+    /// A parent folder is always followed, unlike the item itself.
+    private static func resolvedFolder(_ path: String) -> String {
+        guard path != "/", !path.isEmpty else { return "/" }
+        guard let resolved = realpath(path, nil) else { return inResolvedParent(path) }
+        defer { free(resolved) }
+        let target = String(cString: resolved)
+        return reportedPath(target) ?? target
+    }
+
+    private static func reportedPath(_ path: String) -> String? {
         // O_EVTONLY opens without needing read permission on the item.
         let descriptor = open(path, O_EVTONLY | O_CLOEXEC)
-        guard descriptor >= 0 else { return path }
+        guard descriptor >= 0 else { return nil }
         defer { close(descriptor) }
         var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
-        guard fcntl(descriptor, F_GETPATH, &buffer) == 0 else { return path }
+        guard fcntl(descriptor, F_GETPATH, &buffer) == 0 else { return nil }
         return String(cString: buffer)
     }
 }
