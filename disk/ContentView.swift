@@ -1,3 +1,4 @@
+import QuickLook
 import SwiftUI
 
 struct ContentView: View {
@@ -129,6 +130,7 @@ private struct WorkspaceDialogs: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .quickLookPreview($model.quickLookURL)
             .sheet(isPresented: $model.isDiscardPileVisible) {
                 if let tree = model.tree { DiscardPileSheet(model: model, tree: tree) }
             }

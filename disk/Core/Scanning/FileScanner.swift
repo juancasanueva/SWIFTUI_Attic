@@ -25,7 +25,7 @@ nonisolated struct VolumeBoundary: Sendable {
         guard path == "/" else { return VolumeBoundary(allowedDevices: [device], excludedPaths: []) }
         return VolumeBoundary(
             allowedDevices: Set([device, dataVolumeDevice].compactMap(\.self)),
-            excludedPaths: ["/System/Volumes", "/Volumes", "/dev"])
+            excludedPaths: ["/System/Volumes", "/Volumes", "/dev", "/.vol", "/.nofollow", "/.resolve"])
     }
 }
 
@@ -193,6 +193,7 @@ private nonisolated final class ScanRun: @unchecked Sendable {
         request.commonattr = attrgroup_t(ATTR_CMN_RETURNED_ATTRS) | attrgroup_t(ATTR_CMN_NAME)
             | attrgroup_t(ATTR_CMN_ERROR) | attrgroup_t(ATTR_CMN_DEVID) | attrgroup_t(ATTR_CMN_OBJTYPE)
             | attrgroup_t(ATTR_CMN_MODTIME) | attrgroup_t(ATTR_CMN_FILEID)
+        request.dirattr = attrgroup_t(ATTR_DIR_MOUNTSTATUS)
         request.fileattr = attrgroup_t(ATTR_FILE_LINKCOUNT) | attrgroup_t(ATTR_FILE_TOTALSIZE)
             | attrgroup_t(ATTR_FILE_ALLOCSIZE)
 
@@ -238,7 +239,9 @@ private nonisolated final class ScanRun: @unchecked Sendable {
             name: entry.name, kind: PackageClassifier.kind(ofFolderNamed: entry.name), modified: entry.modified)
         item.directory.subdirectories.append(child)
         let childPath = item.path == "/" ? "/" + entry.name : item.path + "/" + entry.name
-        if boundary.allows(path: childPath, device: entry.device) {
+        // A mount point reports the attributes of the file system underneath it, so its device
+        // says nothing about the volume mounted there. Only the mount status gives it away.
+        if !entry.isMountBoundary, boundary.allows(path: childPath, device: entry.device) {
             batch.discovered.append((child, childPath))
         }
     }
@@ -249,6 +252,7 @@ private nonisolated final class ScanRun: @unchecked Sendable {
         var objectType: UInt32 = 0
         var modified: TimeInterval = 0
         var fileID: UInt64 = 0
+        var isMountBoundary = false
         var linkCount: UInt32 = 1
         var logicalSize: Int64 = 0
         var allocatedSize: Int64 = 0
@@ -278,6 +282,9 @@ private nonisolated final class ScanRun: @unchecked Sendable {
         if has(ATTR_CMN_OBJTYPE, in: returned.commonattr) { entry.objectType = take(UInt32.self) }
         if has(ATTR_CMN_MODTIME, in: returned.commonattr) { entry.modified = TimeInterval(take(timespec.self).tv_sec) }
         if has(ATTR_CMN_FILEID, in: returned.commonattr) { entry.fileID = take(UInt64.self) }
+        if has(ATTR_DIR_MOUNTSTATUS, in: returned.dirattr) {
+            entry.isMountBoundary = take(UInt32.self) & UInt32(DIR_MNTSTATUS_MNTPOINT | DIR_MNTSTATUS_TRIGGER) != 0
+        }
         if has(ATTR_FILE_LINKCOUNT, in: returned.fileattr) { entry.linkCount = take(UInt32.self) }
         if has(ATTR_FILE_TOTALSIZE, in: returned.fileattr) { entry.logicalSize = take(Int64.self) }
         if has(ATTR_FILE_ALLOCSIZE, in: returned.fileattr) { entry.allocatedSize = take(Int64.self) }

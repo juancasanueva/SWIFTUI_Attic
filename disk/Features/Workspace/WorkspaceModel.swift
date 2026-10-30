@@ -77,9 +77,12 @@ final class WorkspaceModel {
     func scan(_ url: URL) {
         scanTask?.cancel()
         // A rescan of the same location keeps the user's place and their discard pile.
-        let carried = url == target ? carriedState() : nil
+        let carried = url.path == target?.path ? carriedState() : nil
         target = url
         tree = nil
+        // Node IDs only mean something within one scan, so nothing may outlive the old tree.
+        pendingTrash = []
+        isDiscardPileVisible = false
         resetNavigation()
         discardPile.removeAll()
         phase = .scanning(ScanProgress())
@@ -292,6 +295,10 @@ final class WorkspaceModel {
         pendingTrash = ids
     }
 
+    var trashPlan: TrashPlan? {
+        tree.map { discardPile.plan(in: $0, policy: TrashSafetyPolicy()) }
+    }
+
     func performPendingTrash() {
         guard let tree, !pendingTrash.isEmpty, !isTrashing else { return }
         var request = DiscardPile()
@@ -302,8 +309,13 @@ final class WorkspaceModel {
         Task {
             let outcome = await Self.moveToTrash(request, in: tree)
             isTrashing = false
-            // A scan that started meanwhile has newer data than this outcome.
-            if revision == startRevision, phase == .ready { apply(outcome) }
+            // A scan that started meanwhile has newer data than this outcome, but anything
+            // that could not be moved still has to be reported.
+            if revision == startRevision, phase == .ready {
+                apply(outcome)
+            } else {
+                trashReport = TrashReport(movedBytes: outcome.movedBytes, failures: outcome.failures)
+            }
         }
     }
 

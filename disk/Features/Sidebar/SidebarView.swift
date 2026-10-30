@@ -140,9 +140,9 @@ private struct DiscardPileFooter: View {
     let model: WorkspaceModel
 
     private var detail: String {
-        guard let tree = model.tree, !model.discardPile.isEmpty else { return "No items marked" }
-        let count = model.discardPile.effectiveItems(in: tree).count
-        return "\(count) \(count == 1 ? "item" : "items") · \(model.discardPile.totalSize(in: tree).byteText)"
+        guard !model.discardPile.isEmpty, let plan = model.trashPlan else { return "No items marked" }
+        let count = plan.moves.count + plan.refusals.count
+        return "\(count) \(count == 1 ? "item" : "items") · \(plan.bytes.byteText)"
     }
 
     var body: some View {

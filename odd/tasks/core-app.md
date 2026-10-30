@@ -20,7 +20,7 @@ Branch: main. Delivery: exception-ok (greenfield repo, no remote, no PR target).
 - T3 [S3, S4] inline: sunburst and treemap layout with tests. Status: done, f12c5bd. RED observed at compile time.
 - T4 [S5, S7] inline: browser query and discard pile rules with tests. Status: done, ddd287c. RED observed at compile time.
 - T5 [S3-S8] inline: SwiftUI shell, charts, browser, inspector, discard pile sheet. Status: done, 48fea0c.
-- T6 [S1-S8] delegated: independent verifier (Risk items 1 and 2). Status: running.
+- T6 [S1-S8] delegated: independent verifier (Risk items 1 and 2). Status: first pass found 4 blockers; correction applied, recheck pending.
 
 ## Log
 
@@ -31,3 +31,6 @@ Branch: main. Delivery: exception-ok (greenfield repo, no remote, no PR target).
 - L5: Evidence from the running app. `/Applications`: 24622411776 bytes and 277335 files, identical to `du -sk` and `find`, under 5 s in Debug. `~/programming/swiftUI`: identical as well. A temporary self test, not committed, sent real mouse events to the window: hover on both charts, click selection on both charts, double-click drill-in and Back on the sunburst. It also ran search, and a real Move to Trash of a scratch file: the file moved, sizes updated, the scan root was refused.
 - L6: Not exercised in the running app: scanning `/` (would raise privacy prompts on the user's screen), unreadable folders outside tests, table row selection and sort clicks, Quick Look, context menus, drag and drop, the sheets, folder double-click on the treemap.
 - L7: All browser criteria apply to everything inside the scope. The first draft of the tests filtered kind on direct children only, which contradicted the size filter.
+- L8: Verifier first pass, baseline 36a66f2. Blockers: B1 scanner entered volumes mounted inside the scan, because a mount point reports the device of the file system underneath it. B2 review list hid items inside a refused folder that were then moved. B3 safety policy compared raw strings, so symlinked and case-variant paths passed. B4 a rescan left `pendingTrash` holding IDs from the old tree, which could trash a different file. S3-S6 passed by code.
+- L9: Correction: B1 requests ATTR_DIR_MOUNTSTATUS (verified on `/`: firmlinks report 0, `/dev` reports 1) and excludes the virtual `/.vol`, `/.nofollow` and `/.resolve`. B2 adds TrashPlan, the single source for both the review sheet and the move. B3 canonicalizes with F_GETPATH and compares case-insensitively. B4 clears `pendingTrash` when a scan starts; this lives in the app target, which has no test target, so it has no regression test. Also taken: A1 and A2 (more protected paths), A4 (failure report kept when a scan raced the move), A6 (Quick Look works with the browser hidden), A8 (rescan matches by path), and the confirmation moved inside the sheet.
+- L10: Advisories left open: A3 trashing the hard link that carried the size reports it as reclaimed; A5 Kind column sorts by category rather than the label shown, results capped at 20,000 silently; A7 paths over PATH_MAX become warnings, a folder swapped for a symlink mid-scan would be followed.

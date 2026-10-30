@@ -84,8 +84,29 @@ import Testing
         pile.add(tree.id("a"))
         pile.add(tree.id("c.bin"))
 
-        #expect(pile.effectiveItems(in: tree) == [tree.id("a"), tree.id("c.bin")])
-        #expect(pile.totalSize(in: tree) == 700)
+        let plan = pile.plan(in: tree, policy: TrashSafetyPolicy(homePath: "/Users/me"))
+
+        #expect(plan.moves == [tree.id("a"), tree.id("c.bin")])
+        #expect(plan.bytes == 700)
+        #expect(plan.refusals.isEmpty)
+    }
+
+    @Test func reviewShowsExactlyWhatGetsMovedWhenAnAncestorIsRefused() {
+        let tree = sampleTree()
+        var pile = DiscardPile()
+        pile.add(FileTree.rootID)
+        pile.add(tree.id("a/x.bin"))
+        let policy = TrashSafetyPolicy(homePath: "/Users/me")
+        let moved = MovedPaths()
+
+        let plan = pile.plan(in: tree, policy: policy)
+        let outcome = pile.moveToTrash(in: tree, policy: policy) { moved.append($0.path) }
+
+        #expect(plan.moves == [tree.id("a/x.bin")], "a refused folder must not hide what is inside it")
+        #expect(plan.refusals.map(\.id) == [FileTree.rootID])
+        #expect(plan.bytes == 400, "refused items are not space to reclaim")
+        #expect(moved.paths == ["/root/a/x.bin"])
+        #expect(outcome.movedBytes == plan.bytes)
     }
 
     @Test func addingTwiceKeepsOneEntry() {
@@ -147,9 +168,52 @@ import Testing
         #expect(TrashSafetyPolicy(homePath: "/Users/me").refusal(forPath: path) != nil)
     }
 
+    @Test func policySeesThroughSymlinksAndCaseVariants() throws {
+        let tmp = try TemporaryTree()
+        defer { tmp.remove() }
+        try tmp.folder("home/Documents")
+        try tmp.file("home/Downloads/big.iso", bytes: 1)
+        try FileManager.default.createSymbolicLink(
+            at: tmp.root.appendingPathComponent("homelink"), withDestinationURL: tmp.root.appendingPathComponent("home"))
+        try FileManager.default.createSymbolicLink(
+            at: tmp.root.appendingPathComponent("parentlink"), withDestinationURL: tmp.root)
+        let policy = TrashSafetyPolicy(homePath: tmp.root.path + "/home")
+
+        #expect(policy.refusal(forPath: tmp.root.path + "/homelink/Documents") != nil)
+        #expect(policy.refusal(forPath: tmp.root.path + "/HOME/documents") != nil)
+        #expect(policy.refusal(forPath: tmp.root.path + "/parentlink/home") != nil)
+        #expect(policy.refusal(forPath: tmp.root.path + "/homelink/Downloads/big.iso") == nil)
+    }
+
+    @Test func aSymlinkItselfIsJudgedByItsOwnLocation() throws {
+        let tmp = try TemporaryTree()
+        defer { tmp.remove() }
+        try tmp.folder("home/Documents")
+        try FileManager.default.createSymbolicLink(
+            at: tmp.root.appendingPathComponent("shortcut"), withDestinationURL: tmp.root.appendingPathComponent("home/Documents"))
+        let policy = TrashSafetyPolicy(homePath: tmp.root.path + "/home")
+
+        #expect(policy.refusal(forPath: tmp.root.path + "/shortcut") == nil, "trashing a link moves only the link")
+    }
+
+    @Test func realEverydayLocationsStayAllowed() {
+        let home = NSHomeDirectory()
+        let policy = TrashSafetyPolicy(homePath: home)
+        #expect(policy.refusal(forPath: home + "/Library/Caches") == nil)
+        #expect(policy.refusal(forPath: FileManager.default.temporaryDirectory.path + "/item") == nil)
+    }
+
+    @Test(arguments: [
+        "/SYSTEM/Library", "/users/me/documents", "/Users/me/.ssh", "/Users/me/.Trash", "/Users/me/Library/Keychains",
+        "/private/etc", "/private/var", "/private/var/db/x", "/private/tmp", "/private/var/root",
+    ])
+    func moreProtectedPaths(path: String) {
+        #expect(TrashSafetyPolicy(homePath: "/Users/me").refusal(forPath: path) != nil)
+    }
+
     @Test(arguments: [
         "/Applications/Old.app", "/Users/me/Downloads/big.iso", "/Users/me/Library/Caches/x", "/usr/local/share/thing",
-        "/Library/Caches/y", "/Users/me/Documents/report.pdf", "/Volumes/Backup/old",
+        "/Library/Caches/y", "/Users/me/Documents/report.pdf", "/Volumes/Backup/old", "/private/tmp/item",
     ])
     func ordinaryPathsAreAllowed(path: String) {
         #expect(TrashSafetyPolicy(homePath: "/Users/me").refusal(forPath: path) == nil)

@@ -1,39 +1,95 @@
 import Foundation
 
 /// Refuses to trash locations whose loss would damage the system or the user's account.
+/// Paths are judged by where they really lead, so a symlink, a different capitalization or
+/// a `/Volumes/<startup disk>` prefix cannot talk it into moving something protected.
 nonisolated struct TrashSafetyPolicy: Sendable {
     private static let protectedPaths: Set<String> = [
-        "/", "/System", "/Library", "/Applications", "/Users", "/Volumes", "/private", "/bin", "/sbin", "/usr",
-        "/etc", "/var", "/tmp", "/opt", "/cores", "/dev",
+        "/", "/system", "/library", "/applications", "/users", "/volumes", "/private", "/bin", "/sbin", "/usr",
+        "/etc", "/var", "/tmp", "/opt", "/cores", "/dev", "/private/etc", "/private/var", "/private/tmp",
     ]
     private static let protectedPrefixes = [
-        "/System/", "/bin/", "/sbin/", "/usr/", "/etc/", "/var/db/", "/private/etc/", "/private/var/db/", "/dev/",
+        "/system/", "/bin/", "/sbin/", "/usr/", "/etc/", "/dev/", "/private/etc/", "/private/var/",
     ]
+    private static let allowedPrefixes = ["/usr/local/", "/private/var/folders/"]
     private static let protectedHomeFolders = [
-        "Library", "Desktop", "Documents", "Downloads", "Movies", "Music", "Pictures", "Public", "Applications",
+        "library", "desktop", "documents", "downloads", "movies", "music", "pictures", "public", "applications",
+        ".ssh", ".gnupg", ".trash", "library/keychains",
     ]
+    private static let dataVolumePrefix = "/system/volumes/data/"
 
-    let homePath: String
+    private let home: String
 
     init(homePath: String = NSHomeDirectory()) {
-        self.homePath = homePath
+        home = Self.comparable(homePath)
     }
 
     /// Why the path must not be trashed, or nil when it may be.
     func refusal(forPath path: String) -> String? {
-        if Self.protectedPaths.contains(path) { return "System location" }
-        if path.hasPrefix("/usr/local/") { return nil }
-        if Self.protectedPrefixes.contains(where: path.hasPrefix) { return "Part of macOS" }
-        if path.hasPrefix("/Volumes/"), !path.dropFirst("/Volumes/".count).contains("/") { return "Volume root" }
-        if path == homePath || homePath.hasPrefix(path + "/") { return "Contains your home folder" }
-        if Self.protectedHomeFolders.contains(where: { path == homePath + "/" + $0 }) { return "Standard home folder" }
+        // The path as written counts too: it is what the user is told will move.
+        for candidate in [path.lowercased(), Self.comparable(path)] {
+            if let reason = refusal(forComparable: candidate) { return reason }
+        }
         return nil
+    }
+
+    private func refusal(forComparable path: String) -> String? {
+        if Self.protectedPaths.contains(path) { return "System location" }
+        if !Self.allowedPrefixes.contains(where: path.hasPrefix), Self.protectedPrefixes.contains(where: path.hasPrefix) {
+            return "Part of macOS"
+        }
+        if path.hasPrefix("/volumes/"), !path.dropFirst("/volumes/".count).contains("/") { return "Volume root" }
+        if path == home || home.hasPrefix(path + "/") { return "Contains your home folder" }
+        if Self.protectedHomeFolders.contains(where: { path == home + "/" + $0 }) { return "Standard home folder" }
+        return nil
+    }
+
+    private static func comparable(_ path: String) -> String {
+        var result = canonical(path).lowercased()
+        if result.hasPrefix(dataVolumePrefix) {
+            result = "/" + result.dropFirst(dataVolumePrefix.count)
+        }
+        return result
+    }
+
+    /// The path the file system itself reports, with symlinks in the parent folders resolved
+    /// and the real capitalization. A symlink stays itself, because trashing one moves only
+    /// the link. Whatever does not exist is kept as written below its nearest real parent.
+    private static func canonical(_ path: String) -> String {
+        guard path != "/", !path.isEmpty else { return "/" }
+        var info = stat()
+        if lstat(path, &info) != 0 || info.st_mode & S_IFMT == S_IFLNK {
+            let nsPath = path as NSString
+            let parent = canonical(nsPath.deletingLastPathComponent)
+            return (parent == "/" ? "" : parent) + "/" + nsPath.lastPathComponent
+        }
+        // O_EVTONLY opens without needing read permission on the item.
+        let descriptor = open(path, O_EVTONLY | O_CLOEXEC)
+        guard descriptor >= 0 else { return path }
+        defer { close(descriptor) }
+        var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+        guard fcntl(descriptor, F_GETPATH, &buffer) == 0 else { return path }
+        return String(cString: buffer)
     }
 }
 
 nonisolated struct TrashFailure: Sendable, Hashable {
     let path: String
     let reason: String
+}
+
+/// What a move to the Trash would do. The review screen and the move itself both read this,
+/// so what the user reviews is exactly what happens.
+nonisolated struct TrashPlan: Sendable {
+    struct Refusal: Sendable {
+        let id: NodeID
+        let reason: String
+    }
+
+    let moves: [NodeID]
+    let refusals: [Refusal]
+    /// Space the moves would reclaim. Refused items are not part of it.
+    let bytes: Int64
 }
 
 nonisolated struct TrashOutcome: Sendable {
@@ -61,33 +117,34 @@ nonisolated struct DiscardPile: Sendable, Equatable {
 
     mutating func removeAll() { items.removeAll() }
 
-    /// The pile without anything already covered by a folder that is also in the pile.
-    func effectiveItems(in tree: FileTree) -> [NodeID] {
-        Self.outermost(items, in: tree)
-    }
-
-    func totalSize(in tree: FileTree) -> Int64 {
-        effectiveItems(in: tree).reduce(0) { $0 + tree[$1].allocatedSize }
-    }
-
-    /// Moves what the policy allows and reports the rest. Anything refused or failed stays
-    /// in the pile and in the tree, so what the user sees always matches the disk.
-    func moveToTrash(in tree: FileTree, policy: TrashSafetyPolicy, move: (URL) throws -> Void) -> TrashOutcome {
-        var failures: [TrashFailure] = []
+    /// Refused items never shelter what is inside them: an item inside a refused folder
+    /// was marked on its own, and it is listed and moved on its own.
+    func plan(in tree: FileTree, policy: TrashSafetyPolicy) -> TrashPlan {
+        var refusals: [TrashPlan.Refusal] = []
         var allowed: [NodeID] = []
         for id in items where tree.contains(id) {
             if id == FileTree.rootID {
-                failures.append(TrashFailure(path: tree.path(of: id), reason: "This is the scanned location"))
+                refusals.append(.init(id: id, reason: "This is the scanned location"))
             } else if let reason = policy.refusal(forPath: tree.path(of: id)) {
-                failures.append(TrashFailure(path: tree.path(of: id), reason: reason))
+                refusals.append(.init(id: id, reason: reason))
             } else {
                 allowed.append(id)
             }
         }
+        let allowedSet = Set(allowed)
+        let moves = allowed.filter { !tree.ancestors(of: $0).dropLast().contains(where: allowedSet.contains) }
+        return TrashPlan(moves: moves, refusals: refusals, bytes: moves.reduce(0) { $0 + tree[$1].allocatedSize })
+    }
+
+    /// Moves what the plan allows and reports the rest. Anything refused or failed stays
+    /// in the pile and in the tree, so what the user sees always matches the disk.
+    func moveToTrash(in tree: FileTree, policy: TrashSafetyPolicy, move: (URL) throws -> Void) -> TrashOutcome {
+        let plan = plan(in: tree, policy: policy)
+        var failures = plan.refusals.map { TrashFailure(path: tree.path(of: $0.id), reason: $0.reason) }
 
         var moved: [NodeID] = []
         var movedBytes: Int64 = 0
-        for id in Self.outermost(allowed, in: tree) {
+        for id in plan.moves {
             do {
                 try move(tree.url(of: id))
                 moved.append(id)
@@ -101,12 +158,5 @@ nonisolated struct DiscardPile: Sendable, Equatable {
         var updatedPile = self
         updatedPile.items.removeAll { !updatedTree.contains($0) }
         return TrashOutcome(tree: updatedTree, pile: updatedPile, failures: failures, movedBytes: movedBytes)
-    }
-
-    private static func outermost(_ ids: [NodeID], in tree: FileTree) -> [NodeID] {
-        let set = Set(ids)
-        return ids.filter { id in
-            tree.contains(id) && !tree.ancestors(of: id).dropLast().contains(where: set.contains)
-        }
     }
 }

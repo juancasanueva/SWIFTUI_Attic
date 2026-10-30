@@ -162,6 +162,26 @@ func allocatedSize(_ url: URL) throws -> Int64 {
         await #expect(throws: CancellationError.self) { _ = try await task.value }
     }
 
+    @Test func aMountedVolumeInsideTheScanIsNotEntered() async throws {
+        let tmp = try TemporaryTree()
+        defer { tmp.remove() }
+        try tmp.file("outside.bin", bytes: 4_096)
+        try tmp.folder("mount")
+        let image = tmp.root.path + "/volume.dmg"
+        let mountPoint = tmp.root.path + "/mount"
+        try hdiutil("create", "-quiet", "-size", "8m", "-fs", "APFS", "-volname", "Probe", image)
+        try hdiutil("attach", "-quiet", "-nobrowse", "-mountpoint", mountPoint, image)
+        defer { try? hdiutil("detach", "-quiet", "-force", mountPoint) }
+        try Data(repeating: 0x41, count: 2_000_000).write(to: URL(fileURLWithPath: mountPoint + "/inside.bin"))
+
+        let tree = try await FileScanner().scan(root: tmp.root)
+
+        let mount = try #require(tree.children(of: FileTree.rootID).first { tree[$0].name == "mount" })
+        #expect(tree.children(of: mount).isEmpty)
+        #expect(tree[mount].allocatedSize == 0)
+        #expect(tree.root.fileCount == 2, "outside.bin and volume.dmg only")
+    }
+
     @Test func foldersOnOtherDevicesAreNotEntered() {
         let boundary = VolumeBoundary.forRoot(path: "/Users/me", device: 5, dataVolumeDevice: 9)
         #expect(boundary.allows(path: "/Users/me/Documents", device: 5))
@@ -174,6 +194,7 @@ func allocatedSize(_ url: URL) throws -> Int64 {
         #expect(!boundary.allows(path: "/Volumes", device: 5))
         #expect(!boundary.allows(path: "/System/Volumes", device: 5))
         #expect(!boundary.allows(path: "/mnt/backup", device: 12))
+        #expect(!boundary.allows(path: "/.vol", device: 5), "virtual paths would expose the same files again")
     }
 
     @Test func packagesAreRecognizedByExtension() {
@@ -193,6 +214,15 @@ func allocatedSize(_ url: URL) throws -> Int64 {
         #expect(box.value?.filesScanned == 1)
         #expect(box.value?.foldersScanned == 2)
     }
+}
+
+private func hdiutil(_ arguments: String...) throws {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+    process.arguments = arguments
+    try process.run()
+    process.waitUntilExit()
+    try #require(process.terminationStatus == 0)
 }
 
 private final class ProgressBox: @unchecked Sendable {

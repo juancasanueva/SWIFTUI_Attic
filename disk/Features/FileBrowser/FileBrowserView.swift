@@ -1,15 +1,9 @@
-import QuickLook
 import SwiftUI
 
 struct FileBrowserView: View {
     @Bindable var model: WorkspaceModel
 
     @State private var sortOrder = [KeyPathComparator(\BrowserRow.allocatedSize, order: .reverse)]
-
-    private var previewURLs: [URL] {
-        guard let tree = model.tree else { return [] }
-        return model.selection.sorted().map(tree.url(of:))
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -69,7 +63,6 @@ struct FileBrowserView: View {
             model.quickLook(id)
             return .handled
         }
-        .quickLookPreview($model.quickLookURL, in: previewURLs)
     }
 
     /// The table only reports the requested order. Sorting happens in the query, so it can

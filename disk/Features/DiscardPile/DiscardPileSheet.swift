@@ -6,45 +6,61 @@ struct DiscardPileSheet: View {
     let model: WorkspaceModel
     let tree: FileTree
 
-    private var items: [NodeID] { model.discardPile.effectiveItems(in: tree) }
+    @State private var isConfirming = false
+
+    private var plan: TrashPlan { model.discardPile.plan(in: tree, policy: TrashSafetyPolicy()) }
+
+    private var summary: String {
+        let count = plan.moves.count
+        return "\(count) \(count == 1 ? "item" : "items") · \(plan.bytes.byteText) to reclaim"
+    }
 
     var body: some View {
+        let plan = plan
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Discard Pile").font(.title2.weight(.semibold))
-                Text("\(items.count) \(items.count == 1 ? "item" : "items") · \(model.discardPile.totalSize(in: tree).byteText) to reclaim")
-                    .foregroundStyle(.secondary)
+                Text(summary).foregroundStyle(.secondary)
             }
-            List(items, id: \.self) { id in
-                row(for: id)
+            List {
+                ForEach(plan.moves, id: \.self) { id in
+                    row(for: id, refusal: nil)
+                }
+                ForEach(plan.refusals, id: \.id) { refusal in
+                    row(for: refusal.id, refusal: refusal.reason)
+                }
             }
             .frame(minHeight: 280)
             .overlay {
-                if items.isEmpty {
+                if plan.moves.isEmpty && plan.refusals.isEmpty {
                     ContentUnavailableView("No Items Marked", systemImage: "checklist")
                 }
             }
             HStack {
                 Button("Remove All", action: model.clearDiscardPile)
-                    .disabled(items.isEmpty)
+                    .disabled(model.discardPile.isEmpty)
                 Spacer()
                 Button("Close") { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("Move to Trash…", role: .destructive) {
-                    model.confirmMoveToTrash(model.discardPile.items)
-                    dismiss()
-                }
-                .disabled(items.isEmpty)
+                Button("Move to Trash…", role: .destructive) { isConfirming = true }
+                    .disabled(plan.moves.isEmpty)
             }
         }
         .padding()
         .frame(width: 620, height: 460)
+        .confirmationDialog("Move \(summary)?", isPresented: $isConfirming) {
+            Button("Move to Trash", role: .destructive) {
+                model.confirmMoveToTrash(plan.moves)
+                model.performPendingTrash()
+                dismiss()
+            }
+        } message: {
+            Text("You can restore these items from the Trash.")
+        }
     }
 
-    private func row(for id: NodeID) -> some View {
-        let refusal = TrashSafetyPolicy().refusal(forPath: tree.path(of: id))
-            ?? (id == FileTree.rootID ? "This is the scanned location" : nil)
-        return HStack(spacing: 10) {
+    private func row(for id: NodeID, refusal: String?) -> some View {
+        HStack(spacing: 10) {
             NodeIcon(kind: tree[id].kind)
             VStack(alignment: .leading, spacing: 2) {
                 Text(tree[id].name).lineLimit(1)
