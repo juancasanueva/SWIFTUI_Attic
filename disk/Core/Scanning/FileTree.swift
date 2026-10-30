@@ -78,6 +78,17 @@ nonisolated struct FileTree: Sendable {
         URL(fileURLWithPath: path(of: id), isDirectory: nodes[Int(id)].kind.isContainer)
     }
 
+    /// The node at an absolute path, used to carry state over to a fresh scan.
+    func node(atPath path: String) -> NodeID? {
+        guard path == rootPath || path.hasPrefix(rootPath == "/" ? "/" : rootPath + "/") else { return nil }
+        var current = Self.rootID
+        for part in path.dropFirst(rootPath.count).split(separator: "/") {
+            guard let next = children(of: current).first(where: { nodes[Int($0)].name == part }) else { return nil }
+            current = next
+        }
+        return current
+    }
+
     /// False once the node, or a folder above it, has been removed.
     func contains(_ id: NodeID) -> Bool {
         guard id >= 0, Int(id) < nodes.count else { return false }

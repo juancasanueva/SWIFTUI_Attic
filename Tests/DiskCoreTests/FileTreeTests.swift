@@ -63,6 +63,14 @@ extension FileTree {
         #expect(updated.warnings.isEmpty, "warnings inside a removed folder go away with it")
     }
 
+    @Test func nodesAreFoundByAbsolutePath() {
+        let tree = sampleTree()
+        #expect(tree.node(atPath: "/root") == FileTree.rootID)
+        #expect(tree.node(atPath: "/root/a/x.bin") == tree.id("a/x.bin"))
+        #expect(tree.node(atPath: "/root/a/missing") == nil)
+        #expect(tree.node(atPath: "/rootless/a") == nil)
+    }
+
     @Test func rootCannotBeRemoved() {
         let tree = sampleTree()
         #expect(tree.removing([FileTree.rootID]).root.allocatedSize == tree.root.allocatedSize)
