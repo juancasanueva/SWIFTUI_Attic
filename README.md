@@ -13,7 +13,7 @@ to review before moving anything to the Trash.
   kind and allocated size, Quick Look, breadcrumbs and back/forward navigation.
 - Inspector with sizes, access, parent and largest children.
 - Discard pile. System locations and the scanned location are refused, whatever is selected.
-- Smart Locations, recent scans, and drag and drop of a folder to scan it.
+- Sidebar with drives, standard folders and recent scans, and drag and drop of a folder to scan it.
 
 Folders such as Mail or Safari data need **Full Disk Access**. The app runs without the App
 Sandbox because the sandbox would block scanning arbitrary locations.

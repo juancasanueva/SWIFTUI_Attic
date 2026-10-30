@@ -30,14 +30,13 @@ struct SmartLocation: Identifiable, Hashable {
     let url: URL
     let name: String
     let symbol: String
-    let detail: String
+    let detail: String?
 
     var id: String { url.path }
 
-    /// Mounted volumes first, then the standard folders of the current user.
-    static func current() -> [SmartLocation] {
+    static func drives() -> [SmartLocation] {
         let keys: [URLResourceKey] = [.volumeNameKey, .volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey, .volumeIsRemovableKey]
-        let volumes = (FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? [])
+        return (FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? [])
             .map { url -> SmartLocation in
                 let values = try? url.resourceValues(forKeys: Set(keys))
                 let free = (values?.volumeAvailableCapacityForImportantUsage ?? 0).formatted(.byteCount(style: .file))
@@ -47,12 +46,15 @@ struct SmartLocation: Identifiable, Hashable {
                     symbol: values?.volumeIsRemovable == true ? "externaldrive.fill" : "internaldrive.fill",
                     detail: "\(free) free of \(total)")
             }
+    }
 
+    /// The standard folders of the current user.
+    static func folders() -> [SmartLocation] {
         let home = URL(fileURLWithPath: NSHomeDirectory())
         func folder(_ name: String, _ symbol: String, _ url: URL) -> SmartLocation {
-            SmartLocation(url: url, name: name, symbol: symbol, detail: url.path)
+            SmartLocation(url: url, name: name, symbol: symbol, detail: nil)
         }
-        return volumes + [
+        return [
             folder("Home", "house.fill", home),
             folder("Desktop", "menubar.dock.rectangle", home.appending(path: "Desktop")),
             folder("Documents", "doc.fill", home.appending(path: "Documents")),
@@ -66,10 +68,11 @@ struct SmartLocation: Identifiable, Hashable {
 struct SidebarView: View {
     let model: WorkspaceModel
 
-    @State private var locations = SmartLocation.current()
+    @State private var drives = SmartLocation.drives()
+    @State private var folders = SmartLocation.folders()
 
     private var recentPaths: [String] {
-        let smart = Set(locations.map(\.url.path))
+        let smart = Set((drives + folders).map(\.url.path))
         return model.recents.paths.filter { !smart.contains($0) }
     }
 
@@ -83,51 +86,99 @@ struct SidebarView: View {
 
     var body: some View {
         List(selection: selectedPath) {
-            Section("Smart Locations") {
-                ForEach(locations) { location in
-                    SidebarRow(title: location.name, detail: location.detail, symbol: location.symbol)
-                        .tag(location.url.path)
-                }
-            }
+            locationSection("Drives", drives)
+            locationSection("Folders", folders)
             if !recentPaths.isEmpty {
-                Section("Recent Scans") {
+                Section {
                     ForEach(recentPaths, id: \.self) { path in
-                        SidebarRow(title: (path as NSString).lastPathComponent, detail: path, symbol: "folder.fill")
+                        SidebarRow(title: (path as NSString).lastPathComponent, detail: nil, symbol: "folder.fill")
                             .tag(path)
+                            .help(path)
                             .contextMenu {
                                 Button("Remove from Recents") { model.recents.remove(path) }
                             }
                     }
+                } header: {
+                    SidebarSectionTitle("Recent Scans")
                 }
             }
+            ChooseFolderRow(action: model.chooseFolder)
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             DiscardPileFooter(model: model)
         }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didMountNotification)) { _ in
-            locations = SmartLocation.current()
+            drives = SmartLocation.drives()
         }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didUnmountNotification)) { _ in
-            locations = SmartLocation.current()
+            drives = SmartLocation.drives()
         }
+    }
+}
+
+private func locationSection(_ title: String, _ locations: [SmartLocation]) -> some View {
+    Section {
+        ForEach(locations) { location in
+            SidebarRow(title: location.name, detail: location.detail, symbol: location.symbol)
+                .tag(location.url.path)
+                .help(location.url.path)
+        }
+    } header: {
+        SidebarSectionTitle(title)
+    }
+}
+
+private struct SidebarSectionTitle: View {
+    let title: String
+
+    init(_ title: String) {
+        self.title = title
+    }
+
+    var body: some View {
+        Text(title).font(.title2.weight(.semibold))
+    }
+}
+
+private struct ChooseFolderRow: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label("Choose Folder…", systemImage: "plus.circle")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .contentShape(.rect(cornerRadius: 10))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(.secondary.opacity(0.5))
+                }
+        }
+        .buttonStyle(.plain)
+        .selectionDisabled()
+        .listRowSeparator(.hidden)
+        .padding(.top, 6)
     }
 }
 
 private struct SidebarRow: View {
     let title: String
-    let detail: String
+    let detail: String?
     let symbol: String
 
     var body: some View {
         Label {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                if let detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
         } icon: {
             Image(systemName: symbol)

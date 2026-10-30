@@ -85,7 +85,6 @@ private struct WorkspaceToolbar: ToolbarContent {
                 .disabled(!model.canGoForward)
         }
         ToolbarItemGroup(placement: .primaryAction) {
-            Button("Choose Folder", systemImage: "folder.badge.plus", action: model.chooseFolder)
             Button("Rescan", systemImage: "arrow.clockwise", action: model.rescan)
                 .disabled(model.target == nil || model.isScanning)
             Button("Toggle File Browser", systemImage: "rectangle.split.1x2") {
