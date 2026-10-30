@@ -18,6 +18,7 @@ struct ContentView: View {
                 }
         }
         .navigationTitle(model.tree.map { $0[model.focus].name } ?? "Disk")
+        .toolbar(removing: .title)
         .toolbar { WorkspaceToolbar(model: model) }
         .frame(minWidth: 900, minHeight: 600)
         .overlay {
@@ -84,14 +85,12 @@ private struct WorkspaceToolbar: ToolbarContent {
             Button("Forward", systemImage: "chevron.right", action: model.goForward)
                 .disabled(!model.canGoForward)
         }
-        ToolbarItemGroup(placement: .primaryAction) {
+        ToolbarItemGroup(placement: .principal) {
             Button("Rescan", systemImage: "arrow.clockwise", action: model.rescan)
                 .disabled(model.target == nil || model.isScanning)
             Button("Toggle File Browser", systemImage: "rectangle.split.1x2") {
                 model.isBrowserVisible.toggle()
             }
-        }
-        ToolbarItem(placement: .primaryAction) {
             Picker("Chart", selection: $model.chartMode) {
                 Label("Sunburst", systemImage: "chart.pie").tag(WorkspaceModel.ChartMode.sunburst)
                 Label("Treemap", systemImage: "square.grid.3x3").tag(WorkspaceModel.ChartMode.treemap)
