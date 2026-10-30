@@ -95,8 +95,7 @@ nonisolated struct TrashFailure: Sendable, Hashable {
     let reason: String
 }
 
-/// What a move to the Trash would do. The review screen and the move itself both read this,
-/// so what the user reviews is exactly what happens.
+/// What a move to the Trash will do with a set of items.
 nonisolated struct TrashPlan: Sendable {
     struct Refusal: Sendable {
         let id: NodeID
@@ -107,61 +106,35 @@ nonisolated struct TrashPlan: Sendable {
     let refusals: [Refusal]
     /// Space the moves would reclaim. Refused items are not part of it.
     let bytes: Int64
-}
-
-nonisolated struct TrashOutcome: Sendable {
-    let tree: FileTree
-    let pile: DiscardPile
-    let failures: [TrashFailure]
-    let movedBytes: Int64
-}
-
-/// Items set aside for review. Nothing leaves the disk until `moveToTrash` runs.
-nonisolated struct DiscardPile: Sendable, Equatable {
-    private(set) var items: [NodeID] = []
-
-    var isEmpty: Bool { items.isEmpty }
-
-    func contains(_ id: NodeID) -> Bool { items.contains(id) }
-
-    mutating func add(_ id: NodeID) {
-        if !items.contains(id) { items.append(id) }
-    }
-
-    mutating func remove(_ id: NodeID) {
-        items.removeAll { $0 == id }
-    }
-
-    mutating func removeAll() { items.removeAll() }
 
     /// Refused items never shelter what is inside them: an item inside a refused folder
-    /// was marked on its own, and it is listed and moved on its own.
-    func plan(in tree: FileTree, policy: TrashSafetyPolicy) -> TrashPlan {
-        var refusals: [TrashPlan.Refusal] = []
+    /// was chosen on its own, and it is moved on its own.
+    init(items: some Sequence<NodeID>, in tree: FileTree, policy: TrashSafetyPolicy) {
+        var refusals: [Refusal] = []
         var allowed: [NodeID] = []
-        for id in items where tree.contains(id) {
+        var seen = Set<NodeID>()
+        for id in items where seen.insert(id).inserted && tree.contains(id) {
             if id == FileTree.rootID {
-                refusals.append(.init(id: id, reason: "This is the scanned location"))
+                refusals.append(Refusal(id: id, reason: "This is the scanned location"))
             } else if let reason = policy.refusal(forPath: tree.path(of: id)) {
-                refusals.append(.init(id: id, reason: reason))
+                refusals.append(Refusal(id: id, reason: reason))
             } else {
                 allowed.append(id)
             }
         }
         let allowedSet = Set(allowed)
-        let moves = allowed.filter { !tree.ancestors(of: $0).dropLast().contains(where: allowedSet.contains) }
-        return TrashPlan(moves: moves, refusals: refusals, bytes: moves.reduce(0) { $0 + tree[$1].allocatedSize })
+        moves = allowed.filter { !tree.ancestors(of: $0).dropLast().contains(where: allowedSet.contains) }
+        self.refusals = refusals
+        bytes = moves.reduce(0) { $0 + tree[$1].allocatedSize }
     }
 
-    /// Moves what the plan allows and reports the rest. Anything refused or failed stays
-    /// in the pile and in the tree, so what the user sees always matches the disk.
-    func moveToTrash(in tree: FileTree, policy: TrashSafetyPolicy, move: (URL) throws -> Void) -> TrashOutcome {
-        let plan = plan(in: tree, policy: policy)
-        var failures = plan.refusals.map { TrashFailure(path: tree.path(of: $0.id), reason: $0.reason) }
-
+    /// Moves what the plan allows and reports the rest. Anything refused or failed stays in
+    /// the tree, so what the user sees always matches the disk.
+    func execute(in tree: FileTree, move: (URL) throws -> Void) -> TrashOutcome {
+        var failures = refusals.map { TrashFailure(path: tree.path(of: $0.id), reason: $0.reason) }
         var moved: [NodeID] = []
         var movedBytes: Int64 = 0
-        for id in plan.moves {
+        for id in moves {
             do {
                 try move(tree.url(of: id))
                 moved.append(id)
@@ -170,10 +143,12 @@ nonisolated struct DiscardPile: Sendable, Equatable {
                 failures.append(TrashFailure(path: tree.path(of: id), reason: error.localizedDescription))
             }
         }
-
-        let updatedTree = tree.removing(moved)
-        var updatedPile = self
-        updatedPile.items.removeAll { !updatedTree.contains($0) }
-        return TrashOutcome(tree: updatedTree, pile: updatedPile, failures: failures, movedBytes: movedBytes)
+        return TrashOutcome(tree: tree.removing(moved), failures: failures, movedBytes: movedBytes)
     }
+}
+
+nonisolated struct TrashOutcome: Sendable {
+    let tree: FileTree
+    let failures: [TrashFailure]
+    let movedBytes: Int64
 }

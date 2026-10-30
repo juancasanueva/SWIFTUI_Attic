@@ -109,9 +109,25 @@ private struct WorkspaceToolbar: ToolbarContent {
 private struct WorkspaceDialogs: ViewModifier {
     @Bindable var model: WorkspaceModel
 
+    /// The dialog is the last look before files move, so it states what will really happen.
+    private var trashPlan: TrashPlan? {
+        model.tree.map { TrashPlan(items: model.pendingTrash, in: $0, policy: TrashSafetyPolicy()) }
+    }
+
     private var trashTitle: String {
-        let count = model.pendingTrash.count
-        return "Move \(count) \(count == 1 ? "item" : "items") to the Trash?"
+        guard let plan = trashPlan, !plan.moves.isEmpty else { return "This Can't Be Moved to the Trash" }
+        let count = plan.moves.count
+        return "Move \(count) \(count == 1 ? "item" : "items") (\(plan.bytes.byteText)) to the Trash?"
+    }
+
+    private var trashMessage: String {
+        guard let tree = model.tree, let plan = trashPlan else { return "" }
+        let moving = plan.moves.prefix(5).map { tree[$0].name }.joined(separator: ", ")
+        let more = plan.moves.count > 5 ? " and \(plan.moves.count - 5) more" : ""
+        let refused = plan.refusals.prefix(5).map { "\(tree[$0.id].name): \($0.reason)" }.joined(separator: "\n")
+        return [moving + more, refused.isEmpty ? "" : "Won't be moved:\n" + refused]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
     }
 
     private var isConfirmingTrash: Binding<Bool> {
@@ -130,9 +146,6 @@ private struct WorkspaceDialogs: ViewModifier {
     func body(content: Content) -> some View {
         content
             .quickLookPreview($model.quickLookURL)
-            .sheet(isPresented: $model.isDiscardPileVisible) {
-                if let tree = model.tree { DiscardPileSheet(model: model, tree: tree) }
-            }
             .sheet(isPresented: $model.isWarningsVisible) {
                 WarningsSheet(model: model, warnings: model.tree?.warnings ?? [])
             }
@@ -140,11 +153,11 @@ private struct WorkspaceDialogs: ViewModifier {
                 TrashReportSheet(report: report)
             }
             .confirmationDialog(trashTitle, isPresented: isConfirmingTrash) {
-                Button("Move to Trash", role: .destructive, action: model.performPendingTrash)
-            } message: {
-                if let tree = model.tree {
-                    Text(model.pendingTrash.prefix(5).map { tree[$0].name }.joined(separator: ", "))
+                if trashPlan?.moves.isEmpty == false {
+                    Button("Move to Trash", role: .destructive, action: model.performPendingTrash)
                 }
+            } message: {
+                Text(trashMessage)
             }
     }
 }

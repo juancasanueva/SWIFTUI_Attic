@@ -29,11 +29,6 @@ struct FileBrowserView: View {
                             Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                         }
                     }
-                    if model.discardPile.contains(row.id) {
-                        Image(systemName: "trash.circle.fill")
-                            .foregroundStyle(.red)
-                            .accessibilityLabel("In Discard Pile")
-                    }
                 }
             }
             .width(min: 180, ideal: 320)

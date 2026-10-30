@@ -55,8 +55,6 @@ final class WorkspaceModel {
     var query = FileBrowserQuery()
     private(set) var browserRows: [BrowserRow] = []
 
-    private(set) var discardPile = DiscardPile()
-    var isDiscardPileVisible = false
     var pendingTrash: [NodeID] = []
     var trashReport: TrashReport?
     private(set) var isTrashing = false
@@ -76,15 +74,13 @@ final class WorkspaceModel {
 
     func scan(_ url: URL) {
         scanTask?.cancel()
-        // A rescan of the same location keeps the user's place and their discard pile.
+        // A rescan of the same location keeps the user's place.
         let carried = url.path == target?.path ? carriedState() : nil
         target = url
         tree = nil
         // Node IDs only mean something within one scan, so nothing may outlive the old tree.
         pendingTrash = []
-        isDiscardPileVisible = false
         resetNavigation()
-        discardPile.removeAll()
         phase = .scanning(ScanProgress())
         recents.record(url)
 
@@ -135,26 +131,18 @@ final class WorkspaceModel {
         phase = .failed(Self.describe(error))
     }
 
-    private func finishScan(_ tree: FileTree, carried: CarriedState?) {
+    private func finishScan(_ tree: FileTree, carried: String?) {
         self.tree = tree
         revision += 1
         if let carried {
-            focus = carried.focusPath.flatMap(tree.node(atPath:)) ?? FileTree.rootID
-            for path in carried.pilePaths {
-                if let id = tree.node(atPath: path) { discardPile.add(id) }
-            }
+            focus = tree.node(atPath: carried) ?? FileTree.rootID
         }
         phase = .ready
     }
 
-    private struct CarriedState {
-        let focusPath: String?
-        let pilePaths: [String]
-    }
-
-    private func carriedState() -> CarriedState? {
-        guard let tree else { return nil }
-        return CarriedState(focusPath: tree.path(of: focus), pilePaths: discardPile.items.map(tree.path(of:)))
+    /// The path of the folder on screen, to return to after a rescan.
+    private func carriedState() -> String? {
+        tree?.path(of: focus)
     }
 
     private func resetNavigation() {
@@ -280,38 +268,20 @@ final class WorkspaceModel {
         return tree[id].warningCount > 0 ? "Limited access" : nil
     }
 
-    // MARK: Discard pile
-
-    func addToDiscardPile(_ ids: some Sequence<NodeID>) {
-        for id in ids { discardPile.add(id) }
-    }
-
-    func removeFromDiscardPile(_ id: NodeID) {
-        discardPile.remove(id)
-    }
-
-    func clearDiscardPile() {
-        discardPile.removeAll()
-    }
+    // MARK: Trash
 
     func confirmMoveToTrash(_ ids: [NodeID]) {
         pendingTrash = ids
-    }
-
-    var trashPlan: TrashPlan? {
-        tree.map { discardPile.plan(in: $0, policy: TrashSafetyPolicy()) }
     }
 
     func performPendingTrash() {
         let requested = pendingTrash
         pendingTrash = []
         guard let tree, !requested.isEmpty, !isTrashing else { return }
-        var request = DiscardPile()
-        for id in requested { request.add(id) }
         isTrashing = true
         let startRevision = revision
         Task {
-            let outcome = await Self.moveToTrash(request, in: tree)
+            let outcome = await Self.moveToTrash(requested, in: tree)
             isTrashing = false
             // A scan that started meanwhile has newer data than this outcome, but anything
             // that could not be moved still has to be reported.
@@ -324,8 +294,8 @@ final class WorkspaceModel {
     }
 
     @concurrent
-    private nonisolated static func moveToTrash(_ pile: DiscardPile, in tree: FileTree) async -> TrashOutcome {
-        pile.moveToTrash(in: tree, policy: TrashSafetyPolicy()) { url in
+    private nonisolated static func moveToTrash(_ ids: [NodeID], in tree: FileTree) async -> TrashOutcome {
+        TrashPlan(items: ids, in: tree, policy: TrashSafetyPolicy()).execute(in: tree) { url in
             try FileManager.default.trashItem(at: url, resultingItemURL: nil)
         }
     }
@@ -333,7 +303,6 @@ final class WorkspaceModel {
     private func apply(_ outcome: TrashOutcome) {
         tree = outcome.tree
         revision += 1
-        for id in discardPile.items where !outcome.tree.contains(id) { discardPile.remove(id) }
         selection = selection.filter(outcome.tree.contains)
         while !outcome.tree.contains(focus) { focus = outcome.tree[focus].parent }
         backStack.removeAll { !outcome.tree.contains($0) }

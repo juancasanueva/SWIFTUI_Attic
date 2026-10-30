@@ -41,8 +41,6 @@ struct NodeActionsMenu: View {
     let model: WorkspaceModel
     let ids: [NodeID]
 
-    private var inPile: Bool { ids.allSatisfy(model.discardPile.contains) }
-
     var body: some View {
         if let id = ids.first, let tree = model.tree {
             if ids.count == 1, tree[id].kind.isContainer {
@@ -56,11 +54,6 @@ struct NodeActionsMenu: View {
             Button("Reveal in Finder") { model.reveal(ids) }
             Button("Copy Path") { model.copyPaths(ids) }
             Divider()
-            if inPile {
-                Button("Remove from Discard Pile") { ids.forEach(model.removeFromDiscardPile) }
-            } else {
-                Button("Add to Discard Pile") { model.addToDiscardPile(ids) }
-            }
             Button("Move to Trash…", role: .destructive) { model.confirmMoveToTrash(ids) }
                 .disabled(model.isTrashing)
         }

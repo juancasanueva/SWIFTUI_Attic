@@ -48,10 +48,6 @@ struct DiskCommands: Commands {
             Button("Enclosing Folder") { model?.goUp() }
                 .keyboardShortcut(.upArrow)
                 .disabled(model?.canGoUp != true)
-            Divider()
-            Button("Discard Pile") { model?.isDiscardPileVisible = true }
-                .keyboardShortcut("d", modifiers: [.command, .shift])
-                .disabled(model?.discardPile.isEmpty != false)
         }
     }
 }

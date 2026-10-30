@@ -103,15 +103,12 @@ private struct TreemapHighlight: View {
     var body: some View {
         let hovered = model.hoveredID
         let selection = model.selection
-        let pile = model.discardPile
         Canvas { context, _ in
             for cell in layout.cells {
                 let isHovered = cell.id == hovered
                 let isSelected = selection.contains(cell.id)
-                let isDiscarded = pile.contains(cell.id)
-                guard isHovered || isSelected || isDiscarded else { continue }
+                guard isHovered || isSelected else { continue }
                 let shape = Path(roundedRect: cell.rect, cornerRadius: 2)
-                if isDiscarded { context.fill(shape, with: .color(.red.opacity(0.45))) }
                 if isHovered && !cell.showsHeader { context.fill(shape, with: .color(.white.opacity(0.18))) }
                 if isSelected {
                     context.stroke(shape, with: .color(.accentColor), lineWidth: 2.5)

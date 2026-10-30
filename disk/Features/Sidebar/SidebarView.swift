@@ -105,9 +105,6 @@ struct SidebarView: View {
             ChooseFolderRow(action: model.chooseFolder)
         }
         .listStyle(.sidebar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            DiscardPileFooter(model: model)
-        }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didMountNotification)) { _ in
             drives = SmartLocation.drives()
         }
@@ -184,40 +181,5 @@ private struct SidebarRow: View {
             Image(systemName: symbol)
         }
         .padding(.vertical, 2)
-    }
-}
-
-private struct DiscardPileFooter: View {
-    let model: WorkspaceModel
-
-    private var detail: String {
-        guard !model.discardPile.isEmpty, let plan = model.trashPlan else { return "No items marked" }
-        let count = plan.moves.count + plan.refusals.count
-        return "\(count) \(count == 1 ? "item" : "items") · \(plan.bytes.byteText)"
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Divider()
-            Button {
-                model.isDiscardPileVisible = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "checklist")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Discard Pile").font(.callout.weight(.medium))
-                        Text(detail).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .contentShape(.rect)
-            }
-            .buttonStyle(.plain)
-            .disabled(model.discardPile.isEmpty)
-        }
     }
 }

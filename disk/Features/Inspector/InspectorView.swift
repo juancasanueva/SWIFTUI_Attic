@@ -205,8 +205,6 @@ private struct InspectorActions: View {
     let model: WorkspaceModel
     let ids: [NodeID]
 
-    private var allInPile: Bool { !ids.isEmpty && ids.allSatisfy(model.discardPile.contains) }
-
     var body: some View {
         VStack(spacing: 8) {
             Divider()
@@ -216,21 +214,12 @@ private struct InspectorActions: View {
                 } label: {
                     Label("Reveal in Finder", systemImage: "finder").frame(maxWidth: .infinity)
                 }
-                if allInPile {
-                    Button {
-                        ids.forEach(model.removeFromDiscardPile)
-                    } label: {
-                        Label("Remove from Discard Pile", systemImage: "checklist").frame(maxWidth: .infinity)
-                    }
-                } else {
-                    Button {
-                        model.addToDiscardPile(ids)
-                    } label: {
-                        Label("Add to Discard Pile", systemImage: "checklist").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(ids == [FileTree.rootID])
+                Button(role: .destructive) {
+                    model.confirmMoveToTrash(ids)
+                } label: {
+                    Label("Move to Trash…", systemImage: "trash").frame(maxWidth: .infinity)
                 }
+                .disabled(ids == [FileTree.rootID] || model.isTrashing)
             }
             .controlSize(.large)
             .padding(.horizontal, 12)

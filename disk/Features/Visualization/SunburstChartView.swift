@@ -106,17 +106,12 @@ private struct SunburstHighlight: View {
     var body: some View {
         let hovered = model.hoveredID
         let selection = model.selection
-        let pile = model.discardPile
         Canvas { context, _ in
             for segment in layout.segments {
                 let isHovered = segment.id == hovered
                 let isSelected = selection.contains(segment.id)
-                let isDiscarded = pile.contains(segment.id)
-                guard isHovered || isSelected || isDiscarded else { continue }
+                guard isHovered || isSelected else { continue }
                 let path = geometry.path(for: segment)
-                if isDiscarded {
-                    context.fill(path, with: .color(.red.opacity(0.45)))
-                }
                 if isHovered {
                     context.fill(path, with: .color(.white.opacity(0.22)))
                 }

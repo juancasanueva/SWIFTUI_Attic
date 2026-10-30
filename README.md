@@ -1,8 +1,8 @@
 # Disk
 
 A native macOS disk space analyzer written in Swift and SwiftUI. Scan a folder or volume,
-see where the space went in a sunburst or treemap, and set items aside in a discard pile
-to review before moving anything to the Trash.
+see where the space went in a sunburst or treemap, and move what you no longer need to the
+Trash.
 
 ## Features
 
@@ -12,7 +12,8 @@ to review before moving anything to the Trash.
 - Sortable file browser with search over the current folder or the entire scan, filters by
   kind and allocated size, Quick Look, breadcrumbs and back/forward navigation.
 - Inspector with sizes, access, parent and largest children.
-- Discard pile. System locations and the scanned location are refused, whatever is selected.
+- Move to Trash with confirmation. System locations and the scanned location are refused,
+  whatever is selected.
 - Sidebar with drives, standard folders and recent scans, and drag and drop of a folder to scan it.
 
 Folders such as Mail or Safari data need **Full Disk Access**. The app runs without the App
