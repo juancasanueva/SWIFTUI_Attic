@@ -43,7 +43,7 @@
         "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "@executable_path/../Frameworks",
         "MARKETING_VERSION": "1.0",
         "PRODUCT_BUNDLE_IDENTIFIER": "devplaceholder.$(PROJECT_UNIQUE_VALUE:identifier).$(PRODUCT_NAME:rfc1034identifier)",
-        "PRODUCT_NAME": "$(TARGET_NAME)",
+        "PRODUCT_NAME": "Attic",
         "SDKROOT": "macosx",
         "STRING_CATALOG_GENERATE_SYMBOLS": "YES",
         "SUPPORTED_PLATFORMS": "macosx",

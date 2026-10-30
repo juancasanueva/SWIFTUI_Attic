@@ -1,12 +1,12 @@
 import SwiftUI
 
-@main struct DiskApp: App {
+@main struct AtticApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
         .defaultSize(width: 1280, height: 860)
-        .commands { DiskCommands() }
+        .commands { AtticCommands() }
     }
 }
 
@@ -14,7 +14,7 @@ extension FocusedValues {
     @Entry var workspace: WorkspaceModel?
 }
 
-struct DiskCommands: Commands {
+struct AtticCommands: Commands {
     @FocusedValue(\.workspace) private var model
 
     var body: some Commands {

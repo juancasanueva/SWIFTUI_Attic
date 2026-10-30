@@ -1,4 +1,4 @@
-# Disk
+# Attic
 
 A native macOS disk space analyzer written in Swift and SwiftUI. Scan a folder or volume,
 see where the space went in a sunburst or treemap, and move what you no longer need to the

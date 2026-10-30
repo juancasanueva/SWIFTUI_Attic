@@ -17,7 +17,7 @@ struct ContentView: View {
                         .inspectorColumnWidth(min: 260, ideal: 300, max: 420)
                 }
         }
-        .navigationTitle(model.tree.map { $0[model.focus].name } ?? "Disk")
+        .navigationTitle(model.tree.map { $0[model.focus].name } ?? "Attic")
         .toolbar(removing: .title)
         .toolbar { WorkspaceToolbar(model: model) }
         .frame(minWidth: 900, minHeight: 600)
