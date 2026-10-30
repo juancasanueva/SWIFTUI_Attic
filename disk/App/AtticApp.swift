@@ -1,12 +1,18 @@
 import SwiftUI
 
 @main struct AtticApp: App {
+    @State private var updater = SparkleUpdateChecker(automaticChecks: AutomaticUpdateChecks())
+
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
         .defaultSize(width: 1280, height: 860)
-        .commands { AtticCommands() }
+        .commands { AtticCommands(updater: updater) }
+
+        Settings {
+            SettingsView(updater: updater)
+        }
     }
 }
 
@@ -17,7 +23,12 @@ extension FocusedValues {
 struct AtticCommands: Commands {
     @FocusedValue(\.workspace) private var model
 
+    let updater: any AppUpdating
+
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            CheckForUpdatesButton(updater: updater)
+        }
         CommandGroup(after: .newItem) {
             Button("Choose Folder…") { model?.chooseFolder() }
                 .keyboardShortcut("o")
