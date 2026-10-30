@@ -59,9 +59,10 @@ All of this is still to do for Attic, in order, before the first release.
    public key is not a secret.
 5. **The Homebrew cask, right after the first release.** `Casks/attic.rb`
    belongs in `juancasanueva/tap` (`juancasanueva/homebrew-tap`), with an `attic`
-   entry in its `bump.yml` matrix and `ci.yml`. The cask needs the first release's
-   sha256, and the tap's CI downloads the asset, so push the tap change only once
-   that release exists. After that the tap pulls new versions on a schedule from
+   entry in its `bump.yml` matrix and `ci.yml`. The tap change starts with
+   `sha256 :no_check` as a placeholder, which `bump.yml` cannot rewrite: replace it
+   by hand with `sha256 "<sha256 of Attic-<version>.zip>"` before pushing, once the
+   first release exists. After that the tap pulls new versions on a schedule from
    this repository's `releases/latest`; the release job never pushes to it.
 
 ## 3. Cutting a release
@@ -202,8 +203,7 @@ release by publishing a higher version.
   Sparkle cannot replace a sandboxed app's bundle without its XPC installer
   setup, so the pipeline refuses one. Keep `ENABLE_APP_SANDBOX = NO`.
 - **Smoke failed.** The delivered app exited within 20 s; the last lines of
-  `build/smoke.log` are printed. A runner has no Logitech receiver, so the app
-  must tolerate finding none. Nothing was published.
+  `build/smoke.log` are printed. Nothing was published.
 - **Pin Xcode fails.** The runner image dropped Xcode 26.6; update the pin to an
   Xcode the project builds with locally.
 - **Stopped at the distinct-commit gate.** This commit already deployed the

@@ -88,6 +88,8 @@ struct BundleUpdateKeysTests {
         #expect(info["SUFeedURL"] as? String == "https://juancasanueva.github.io/SWIFTUI_Attic/appcast.xml")
         let key = try #require(info["SUPublicEDKey"] as? String)
         #expect(Data(base64Encoded: key)?.count == 32)
+        // Shared with the author's other apps. A different key strands every installed copy.
+        #expect(key == "jqReS/cOvK94pbRz/4DwMBTRMwh/0Nf5OJZ5SAfZDVs=")
     }
 
     /// The Settings window promises a daily check; the bundle states it rather than leaning on

@@ -302,8 +302,8 @@ phase_verify() {
 # The verify gates prove what the artifact is, not that it runs. An optimized
 # Release build can crash within a second of launch where no Debug-built unit
 # test can see it, so the delivered binary itself is started and must still be
-# alive SMOKE_SECONDS later. On a runner with no Logitech receiver attached the
-# app simply finds no devices and keeps running.
+# alive SMOKE_SECONDS later. The app opens on its empty state and scans nothing
+# until asked, so it keeps running on a runner.
 phase_smoke() {
 	local binary="${SMOKE_BINARY:-$VERIFIED_APP/Contents/MacOS/$PRODUCT}"
 	local seconds="${SMOKE_SECONDS:-20}"
