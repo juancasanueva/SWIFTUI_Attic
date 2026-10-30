@@ -125,6 +125,24 @@ struct ReleaseScriptContractTests {
         #expect(modules == ["Attic", "Attic"])
     }
 
+    /// Without the setting, or with a missing size, a release silently ships the
+    /// generic app icon.
+    @Test func theAppShipsACompleteIcon() throws {
+        let project = try ReleasePipelineSources.text(ReleasePipelineSources.projectFile)
+        #expect(project.components(separatedBy: "ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;").count - 1 == 2)
+
+        let folder = "disk/Assets.xcassets/AppIcon.appiconset/"
+        let data = try Data(contentsOf: ReleasePipelineSources.url(folder + "Contents.json"))
+        let contents = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let images = try #require(contents["images"] as? [[String: String]])
+        #expect(Set(images.compactMap { $0["size"] }) == ["16x16", "32x32", "128x128", "256x256", "512x512"])
+        #expect(images.count == 10)
+        for image in images {
+            let name = try #require(image["filename"])
+            #expect(FileManager.default.fileExists(atPath: ReleasePipelineSources.url(folder + name).path), "\(name)")
+        }
+    }
+
     @Test func refusesABundleThatCarriesTheAppSandbox() throws {
         let script = try ReleasePipelineSources.text(ReleasePipelineSources.releaseScript)
         #expect(script.contains("grep -q 'com.apple.security.app-sandbox'"))
