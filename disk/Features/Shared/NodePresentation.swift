@@ -62,6 +62,7 @@ struct NodeActionsMenu: View {
                 Button("Add to Discard Pile") { model.addToDiscardPile(ids) }
             }
             Button("Move to Trash…", role: .destructive) { model.confirmMoveToTrash(ids) }
+                .disabled(model.isTrashing)
         }
     }
 }

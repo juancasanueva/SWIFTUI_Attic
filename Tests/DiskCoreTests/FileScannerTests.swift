@@ -95,6 +95,7 @@ func allocatedSize(_ url: URL) throws -> Int64 {
         let tree = try await FileScanner().scan(root: tmp.root)
 
         #expect(tree.root.allocatedSize == (try allocatedSize(tmp.root.appendingPathComponent("original.bin"))))
+        #expect(tree.root.logicalSize == 500_000)
         #expect(tree.root.fileCount == 2)
     }
 

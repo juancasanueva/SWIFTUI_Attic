@@ -238,7 +238,10 @@ final class WorkspaceModel {
             try? await Task.sleep(for: .milliseconds(150))
         }
         guard !Task.isCancelled else { return }
-        if let rows = try? await Self.makeRows(query: query, tree: tree, focus: focus) {
+        let startRevision = revision
+        let rows = try? await Self.makeRows(query: query, tree: tree, focus: focus)
+        // Row IDs belong to the tree they came from, so late results must not outlive it.
+        if let rows, !Task.isCancelled, revision == startRevision, self.tree != nil {
             browserRows = rows
         }
     }
@@ -300,10 +303,11 @@ final class WorkspaceModel {
     }
 
     func performPendingTrash() {
-        guard let tree, !pendingTrash.isEmpty, !isTrashing else { return }
-        var request = DiscardPile()
-        for id in pendingTrash { request.add(id) }
+        let requested = pendingTrash
         pendingTrash = []
+        guard let tree, !requested.isEmpty, !isTrashing else { return }
+        var request = DiscardPile()
+        for id in requested { request.add(id) }
         isTrashing = true
         let startRevision = revision
         Task {

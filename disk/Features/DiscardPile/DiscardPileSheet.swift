@@ -43,7 +43,7 @@ struct DiscardPileSheet: View {
                 Button("Close") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("Move to Trash…", role: .destructive) { isConfirming = true }
-                    .disabled(plan.moves.isEmpty)
+                    .disabled(plan.moves.isEmpty || model.isTrashing)
             }
         }
         .padding()

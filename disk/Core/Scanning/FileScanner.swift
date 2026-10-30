@@ -223,13 +223,15 @@ private nonisolated final class ScanRun: @unchecked Sendable {
     private func consume(_ entry: ParsedEntry, of item: WorkItem, _ batch: inout Batch) {
         guard entry.objectType == VDIR.rawValue else {
             var allocated = entry.allocatedSize
+            var logical = entry.logicalSize
             if entry.linkCount > 1, !isFirstSighting(device: entry.device, fileID: entry.fileID) {
                 allocated = 0
+                logical = 0
             }
             item.directory.entries.append(RawDirectory.Entry(
                 name: entry.name,
                 kind: entry.objectType == VREG.rawValue ? .file : entry.objectType == VLNK.rawValue ? .symlink : .other,
-                allocatedSize: allocated, logicalSize: entry.logicalSize, modified: entry.modified))
+                allocatedSize: allocated, logicalSize: logical, modified: entry.modified))
             batch.files += 1
             batch.bytes += allocated
             return

@@ -43,7 +43,8 @@ struct SunburstChartView: View {
         }
         .padding(16)
         .task(id: layoutKey) {
-            layout = await Self.makeLayout(tree: tree, focus: model.focus)
+            let computed = await Self.makeLayout(tree: tree, focus: model.focus)
+            if !Task.isCancelled { layout = computed }
         }
         .accessibilityElement()
         .accessibilityLabel("Sunburst chart of \(tree[model.focus].name)")

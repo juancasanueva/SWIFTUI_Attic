@@ -14,6 +14,7 @@ struct FileBrowserView: View {
         .task(id: model.browserKey) {
             await model.refreshBrowser()
         }
+        .onAppear { sortOrder = [currentComparator] }
         .onChange(of: sortOrder) { apply(sortOrder) }
     }
 
@@ -62,6 +63,18 @@ struct FileBrowserView: View {
             guard let id = model.selection.first else { return .ignored }
             model.quickLook(id)
             return .handled
+        }
+    }
+
+    /// The sort lives in the query and outlives this view, so the header picks it up from there.
+    private var currentComparator: KeyPathComparator<BrowserRow> {
+        let order: SortOrder = model.query.ascending ? .forward : .reverse
+        return switch model.query.sortField {
+        case .name: KeyPathComparator(\BrowserRow.name, order: order)
+        case .kind: KeyPathComparator(\BrowserRow.kindLabel, order: order)
+        case .fileCount: KeyPathComparator(\BrowserRow.fileCount, order: order)
+        case .modified: KeyPathComparator(\BrowserRow.modified, order: order)
+        case .allocatedSize: KeyPathComparator(\BrowserRow.allocatedSize, order: order)
         }
     }
 
