@@ -24,7 +24,7 @@ Branch: main. Delivery: exception-ok (greenfield repo, no remote, no PR target).
 
 ## Log
 
-- L1 (2026-10-30, user): asked for a macOS disk space analyzer matching a reference app.
+- L1 (2026-10-30, user): asked for a macOS disk space analyzer matching a reference app. The name is left out at the user's request, see L17.
 - L2 (2026-10-30, user choice): "Rebuild core from scratch". No source from the reference app is copied.
 - L3: A sandbox blocks scanning arbitrary locations, so this app sets ENABLE_APP_SANDBOX = NO.
 - L4: Route evidence: every task inline because no Writer trigger reason holds; the units share one model and are not independent.
@@ -40,3 +40,4 @@ Branch: main. Delivery: exception-ok (greenfield repo, no remote, no PR target).
 - L14 (2026-10-30, user): "I dont like the Discard Pile functionality. Remove it". Decision: the pile, its sheet, chart marks and footer are removed; Move to Trash stays, with its safety policy and confirmation, because the user did not ask to lose it. TrashPlan keeps the same rules and is now built from the chosen items. L10 and L12 references to the pile no longer apply.
 - L15: Verifier on the removal: Trash rules identical to HEAD (2,304 probe cases). One blocker, the protected-paths test was lost when splitting the test file; restored. The confirmation dialog now states the plan, since the review sheet that showed it is gone.
 - L16 (2026-10-31, user): "use Attic". The app is named Attic through PRODUCT_NAME. Project, target, scheme, repository folder and the DiskCore package keep their names. Name availability not checked.
+- L17 (2026-10-31, user): the reference app is not to be named anywhere.

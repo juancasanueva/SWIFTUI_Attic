@@ -39,3 +39,7 @@ swift test
 ```
 
 Debug builds accept `-scanPath <folder>` and `-chartMode treemap` to start in a known state.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
