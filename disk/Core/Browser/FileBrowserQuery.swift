@@ -2,7 +2,7 @@ import Foundation
 
 /// What the file browser shows. Without criteria it lists the focused folder; with any
 /// criterion it searches everything inside the chosen scope.
-nonisolated struct FileBrowserQuery: Sendable, Equatable {
+nonisolated struct FileBrowserQuery: Sendable, Hashable {
     enum Scope: Sendable, Hashable, CaseIterable {
         case currentContents, entireScan
     }
