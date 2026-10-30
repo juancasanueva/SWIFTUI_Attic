@@ -24,9 +24,18 @@ Sandbox because the sandbox would block scanning arbitrary locations.
 Not implemented yet: scan comparison, saved scans, APFS clone detection (cloned files are
 counted in full), localization, chart zoom, incremental rescans, exclusions and settings.
 
+## Install
+
+```bash
+brew install --cask juancasanueva/tap/attic
+```
+
+The app updates itself through Sparkle: use **Attic → Check for Updates…**, or turn on
+automatic checks in Settings.
+
 ## Development
 
-Runs on macOS 15 or later. Building requires Xcode 27. Open `disk.xcodeproj`, or build from the command line:
+Runs on macOS 15 or later. Building requires Xcode 26 or later. Open `disk.xcodeproj`, or build from the command line:
 
 ```bash
 xcodebuild -project disk.xcodeproj -scheme disk -destination 'platform=macOS' build
@@ -41,6 +50,8 @@ swift test
 ```
 
 Debug builds accept `-scanPath <folder>` and `-chartMode treemap` to start in a known state.
+
+Releases are built by a pushed version tag. See [RELEASING.md](RELEASING.md).
 
 ## License
 
