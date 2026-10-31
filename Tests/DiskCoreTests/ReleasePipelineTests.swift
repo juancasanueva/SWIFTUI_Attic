@@ -143,6 +143,19 @@ struct ReleaseScriptContractTests {
         }
     }
 
+    /// The standard About panel only picks up the credits under this exact name.
+    @Test func theAboutPanelCarriesTheDescriptionLicenseAndProjectLink() throws {
+        let credits = try ReleasePipelineSources.text("disk/Resources/Credits.rtf")
+        #expect(credits.contains("disk space analyzer"))
+        #expect(credits.contains("MIT License"))
+        #expect(credits.contains(#"HYPERLINK "https://github.com/juancasanueva/SWIFTUI_Attic/blob/main/LICENSE""#))
+        #expect(credits.contains(#"HYPERLINK "https://github.com/juancasanueva/SWIFTUI_Attic""#))
+
+        let project = try ReleasePipelineSources.text(ReleasePipelineSources.projectFile)
+        let copyright = #"INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Juan Casanueva";"#
+        #expect(project.components(separatedBy: copyright).count - 1 == 2)
+    }
+
     @Test func refusesABundleThatCarriesTheAppSandbox() throws {
         let script = try ReleasePipelineSources.text(ReleasePipelineSources.releaseScript)
         #expect(script.contains("grep -q 'com.apple.security.app-sandbox'"))
