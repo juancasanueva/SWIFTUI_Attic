@@ -1,4 +1,4 @@
-# <img src="disk/Assets.xcassets/AppIcon.appiconset/icon_128.png" alt="" width="48" height="48" align="absmiddle"> Attic
+# <img src="disk/Assets.xcassets/AppIcon.appiconset/icon_256.png" alt="" width="80" height="80" align="absmiddle"> Attic
 
 A native macOS disk space analyzer written in Swift and SwiftUI. Scan a folder or volume,
 see where the space went in a sunburst or treemap, and move what you no longer need to the
