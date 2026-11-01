@@ -31,6 +31,7 @@ struct SmartLocation: Identifiable, Hashable {
     let name: String
     let symbol: String
     let detail: String?
+    var usage: VolumeUsage? = nil
 
     var id: String { url.path }
 
@@ -44,7 +45,8 @@ struct SmartLocation: Identifiable, Hashable {
                 return SmartLocation(
                     url: url, name: values?.volumeName ?? url.lastPathComponent,
                     symbol: values?.volumeIsRemovable == true ? "externaldrive.fill" : "internaldrive.fill",
-                    detail: "\(free) free of \(total)")
+                    detail: "\(free) free of \(total)",
+                    usage: VolumeUsage(total: values?.volumeTotalCapacity, available: values?.volumeAvailableCapacityForImportantUsage))
             }
     }
 
@@ -117,7 +119,7 @@ struct SidebarView: View {
 private func locationSection(_ title: String, _ locations: [SmartLocation]) -> some View {
     Section {
         ForEach(locations) { location in
-            SidebarRow(title: location.name, detail: location.detail, symbol: location.symbol)
+            SidebarRow(title: location.name, detail: location.detail, symbol: location.symbol, usage: location.usage)
                 .tag(location.url.path)
                 .help(location.url.path)
         }
@@ -160,15 +162,48 @@ private struct ChooseFolderRow: View {
     }
 }
 
+private struct VolumeUsageBar: View {
+    let usedFraction: Double
+
+    @Environment(\.backgroundProminence) private var backgroundProminence
+
+    private static let height: CGFloat = 5
+
+    /// A selected row is filled with the accent color, which would hide an accent-colored bar.
+    private var isOnSelection: Bool { backgroundProminence == .increased }
+
+    var body: some View {
+        Capsule()
+            .fill(isOnSelection ? AnyShapeStyle(.white.opacity(0.3)) : AnyShapeStyle(.quaternary))
+            .frame(height: Self.height)
+            .overlay(alignment: .leading) {
+                GeometryReader { proxy in
+                    Capsule()
+                        .fill(isOnSelection ? Color.white : Color.accentColor)
+                        // Keeps a nearly empty volume readable as a dot rather than a sliver.
+                        .frame(width: max(Self.height, proxy.size.width * usedFraction))
+                }
+            }
+            .accessibilityRepresentation {
+                ProgressView("Used space", value: usedFraction)
+            }
+    }
+}
+
 private struct SidebarRow: View {
     let title: String
     let detail: String?
     let symbol: String
+    var usage: VolumeUsage? = nil
 
     var body: some View {
         Label {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
+                if let usage {
+                    VolumeUsageBar(usedFraction: usage.usedFraction)
+                        .padding(.vertical, 3)
+                }
                 if let detail {
                     Text(detail)
                         .font(.caption)
