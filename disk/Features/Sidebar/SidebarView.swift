@@ -104,6 +104,9 @@ struct SidebarView: View {
                     SidebarSectionTitle("Recent Scans")
                 }
             }
+            Section {
+                SmartCleanRow()
+            }
             ChooseFolderRow(action: model.chooseFolder)
         }
         .listStyle(.sidebar)
@@ -137,6 +140,21 @@ private struct SidebarSectionTitle: View {
 
     var body: some View {
         Text(title).font(.title2.weight(.semibold))
+    }
+}
+
+private struct SmartCleanRow: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button { openWindow(id: SmartCleanWindow.id) } label: {
+            Label("Smart Clean", systemImage: "sparkles.rectangle.stack")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .selectionDisabled()
+        .help("Space back, safely: nine suggestions, Trash first, with Undo")
     }
 }
 

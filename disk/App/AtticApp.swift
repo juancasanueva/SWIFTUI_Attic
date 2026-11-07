@@ -10,6 +10,11 @@ import SwiftUI
         .defaultSize(width: 1280, height: 860)
         .commands { AtticCommands(updater: updater) }
 
+        Window("Smart Clean", id: SmartCleanWindow.id) {
+            SmartCleanWindow()
+        }
+        .defaultSize(width: 640, height: 720)
+
         Settings {
             SettingsView(updater: updater)
         }
@@ -22,6 +27,7 @@ extension FocusedValues {
 
 struct AtticCommands: Commands {
     @FocusedValue(\.workspace) private var model
+    @Environment(\.openWindow) private var openWindow
 
     let updater: any AppUpdating
 
@@ -36,6 +42,8 @@ struct AtticCommands: Commands {
             Button("Rescan") { model?.rescan() }
                 .keyboardShortcut("r")
                 .disabled(model?.target == nil || model?.isScanning == true)
+            Divider()
+            Button("Smart Clean…") { openWindow(id: SmartCleanWindow.id) }
         }
         CommandGroup(before: .toolbar) {
             Button("Sunburst") { model?.chartMode = .sunburst }
