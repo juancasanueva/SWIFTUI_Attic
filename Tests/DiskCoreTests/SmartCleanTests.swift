@@ -452,6 +452,28 @@ struct SmartCleanTests {
         #expect(!model.isTicked(dmg))
     }
 
+    @Test("Clean does nothing while a scan is still running: nothing goes until every suggestion is in")
+    func noCleanDuringScan() async throws {
+        let cache = try dir.file("cache.bin", bytes: 4)
+        let gate = Gate()
+        let model = model([
+            FixedScanner(kind: .developerCaches) { _ in [CleanCandidate(url: cache, bytes: 4, detail: "")] },
+            SlowScanner(kind: .duplicates, gate: gate) { [] },
+        ])
+        let scan = Task { await model.lookAgain() }
+        while !model.isTicked(cache) { await Task.yield() }
+        #expect(model.isScanning)
+
+        // Cleaning starts while Duplicates is still looking; the scan is let finish afterwards.
+        let cleaning = Task { await model.clean() }
+        await gate.open()
+        await cleaning.value
+        await scan.value
+
+        #expect(exists("cache.bin") && !exists(".Trash/cache.bin"))
+        #expect(!undoManager.canUndo)
+    }
+
     @Test("An item listed by Safe to clear starts ticked even when a Your call suggestion lists it first")
     func safeTickWinsWhicheverFinishesFirst() async throws {
         let dmg = try dir.file("Downloads/App.dmg", bytes: 4)

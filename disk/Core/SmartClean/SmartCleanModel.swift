@@ -274,7 +274,8 @@ final class SmartCleanModel {
     /// since the scan are skipped, so they don't stop the rest.
     func clean() async {
         let urls = itemsToClean.map(\.url).filter { FileManager.default.fileExists(atPath: $0.path) }
-        guard !urls.isEmpty, !isCleaning else { return }
+        // Nothing goes until every suggestion is in: a scan still running could list more.
+        guard !urls.isEmpty, !isCleaning, !isScanning else { return }
         isCleaning = true
         defer { isCleaning = false }
         do {

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// The Smart Clean window: one model with its own file-operation queue, undone with the
@@ -22,6 +23,8 @@ struct SmartCleanWindow: View {
 struct SmartCleanView: View {
     @Bindable var model: SmartCleanModel
     let undoManager: UndoManager?
+    /// `UndoManager.canUndo` isn't observable, so it is copied here whenever the undo stack changes.
+    @State private var canUndo = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -47,7 +50,13 @@ struct SmartCleanView: View {
         }
         .alert("Empty the Trash?", isPresented: $model.isConfirmingEmptyTrash) {
             Button("Cancel", role: .cancel) { model.cancelEmptyTrash() }
-            Button("Empty Trash", role: .destructive) { Task { await model.confirmEmptyTrash() } }
+            Button("Empty Trash", role: .destructive) {
+                Task {
+                    await model.confirmEmptyTrash()
+                    // Dropping the steps that pointed into the Trash posts no notification.
+                    refreshCanUndo()
+                }
+            }
         } message: {
             Text("Items in the Trash are deleted for good. This can't be undone.")
         }
@@ -65,9 +74,10 @@ struct SmartCleanView: View {
             Button("Look Again") { Task { await model.lookAgain() } }
                 .disabled(model.isScanning || model.isCleaning)
             Button("Undo") { undoManager?.undo() }
-                .disabled(!(undoManager?.canUndo ?? false))
+                .disabled(!canUndo)
             Button("Empty Trash…") { model.requestEmptyTrash() }
-                .disabled(model.storage?.trash == 0)
+                // Off until the Trash is measured and holds something.
+                .disabled((model.storage?.trash ?? 0) == 0 || model.isCleaning)
             Spacer()
             if model.isScanning || model.isCleaning { ProgressView().controlSize(.small) }
             Text("Everything goes to the Trash first.")
@@ -75,8 +85,26 @@ struct SmartCleanView: View {
                 .foregroundStyle(.secondary)
             Button(cleanTitle) { Task { await model.clean() } }
                 .keyboardShortcut(.defaultAction)
-                .disabled(model.itemsToClean.isEmpty || model.isCleaning)
+                .disabled(model.itemsToClean.isEmpty || model.isCleaning || model.isScanning)
         }
+        .onAppear(perform: refreshCanUndo)
+        .onChange(of: undoManager) { refreshCanUndo() }
+        .onReceive(undoChanges) { _ in refreshCanUndo() }
+    }
+
+    /// Posted when a step is registered, undone or redone.
+    private var undoChanges: some Publisher<Notification, Never> {
+        let center = NotificationCenter.default
+        let names: [Notification.Name] = [
+            .NSUndoManagerDidCloseUndoGroup, .NSUndoManagerDidUndoChange,
+            .NSUndoManagerDidRedoChange,
+        ]
+        return Publishers.MergeMany(names.map { center.publisher(for: $0) })
+            .filter { [undoManager] in ($0.object as AnyObject?) === undoManager }
+    }
+
+    private func refreshCanUndo() {
+        canUndo = undoManager?.canUndo ?? false
     }
 
     private var cleanTitle: String {
