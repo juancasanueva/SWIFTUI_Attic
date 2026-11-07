@@ -132,6 +132,14 @@ private struct StorageHeader: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text("\(storage.available.byteText) free of \(storage.total.byteText)")
                         .font(.title2.weight(.semibold))
+                    // System is known only once every other category is measured.
+                    if storage.system == nil {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small)
+                            Text("Measuring…").font(.callout).foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
                     Spacer()
                     Text("\(volumeName) \(storage.used.byteText) used")
                         .foregroundStyle(.secondary)
