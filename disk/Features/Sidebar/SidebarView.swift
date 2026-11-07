@@ -90,26 +90,25 @@ struct SidebarView: View {
         List(selection: selectedPath) {
             locationSection("Drives", drives)
             locationSection("Folders", folders)
-            if !recentPaths.isEmpty {
-                Section {
-                    ForEach(recentPaths, id: \.self) { path in
-                        SidebarRow(title: (path as NSString).lastPathComponent, detail: nil, symbol: "folder.fill")
-                            .tag(path)
-                            .help(path)
-                            .contextMenu {
-                                Button("Remove from Recents") { model.recents.remove(path) }
-                            }
-                    }
-                } header: {
-                    SidebarSectionTitle("Recent Scans")
+            // Always shown: Choose Folder… lives here, below any recent scans.
+            Section {
+                ForEach(recentPaths, id: \.self) { path in
+                    SidebarRow(title: (path as NSString).lastPathComponent, detail: nil, symbol: "folder.fill")
+                        .tag(path)
+                        .help(path)
+                        .contextMenu {
+                            Button("Remove from Recents") { model.recents.remove(path) }
+                        }
                 }
+                ChooseFolderRow(action: model.chooseFolder)
+            } header: {
+                SidebarSectionTitle("Recent Scans")
             }
             Section {
                 SmartCleanRow()
             } header: {
                 SidebarSectionTitle("Clean Up")
             }
-            ChooseFolderRow(action: model.chooseFolder)
         }
         .listStyle(.sidebar)
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didMountNotification)) { _ in
