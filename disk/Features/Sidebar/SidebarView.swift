@@ -106,6 +106,8 @@ struct SidebarView: View {
             }
             Section {
                 SmartCleanRow()
+            } header: {
+                SidebarSectionTitle("Clean Up")
             }
             ChooseFolderRow(action: model.chooseFolder)
         }
