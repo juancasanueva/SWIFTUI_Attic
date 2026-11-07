@@ -17,7 +17,7 @@ Trash.
 - Move to Trash with confirmation. System locations and the scanned location are refused,
   whatever is selected.
 - Sidebar with drives, standard folders and recent scans, and drag and drop of a folder to scan it.
-- Smart Clean (sidebar or **File → Smart Clean…**): how full the Mac is, then nine cleanup
+- Smart Clean (sidebar or **File → Smart Clean**), in the main pane: how full the Mac is, then nine cleanup
   suggestions sorted into *Safe to clear* (ticked: developer caches, duplicates, installers
   for apps you have, Mail's copies of attachments) and *Your call* (unticked: big files,
   unused apps, old screen recordings, old downloads, leftovers of deleted apps). Each one

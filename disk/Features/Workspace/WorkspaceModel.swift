@@ -35,6 +35,9 @@ final class WorkspaceModel {
     }
 
     let recents = RecentScansStore()
+    /// Smart Clean, shown in the main pane instead of the scan while `isShowingSmartClean`.
+    let smartClean = SmartCleanModel(actions: TrashActions())
+    private(set) var isShowingSmartClean = false
 
     private(set) var phase = Phase.empty
     private(set) var target: URL?
@@ -72,7 +75,17 @@ final class WorkspaceModel {
 
     // MARK: Scanning
 
+    func showSmartClean() {
+        isShowingSmartClean = true
+    }
+
+    /// Back to the scan, as it was left.
+    func showScan() {
+        isShowingSmartClean = false
+    }
+
     func scan(_ url: URL) {
+        isShowingSmartClean = false
         scanTask?.cancel()
         // A rescan of the same location keeps the user's place.
         let carried = url.path == target?.path ? carriedState() : nil

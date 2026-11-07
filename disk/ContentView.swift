@@ -12,12 +12,13 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
         } detail: {
             detail
-                .inspector(isPresented: $model.isInspectorVisible) {
+                // Smart Clean has nothing to inspect.
+                .inspector(isPresented: model.isShowingSmartClean ? .constant(false) : $model.isInspectorVisible) {
                     inspector
                         .inspectorColumnWidth(min: 260, ideal: 300, max: 420)
                 }
         }
-        .navigationTitle(model.tree.map { $0[model.focus].name } ?? "Attic")
+        .navigationTitle(model.isShowingSmartClean ? "Smart Clean" : model.tree.map { $0[model.focus].name } ?? "Attic")
         .toolbar(removing: .title)
         .toolbar { WorkspaceToolbar(model: model) }
         .frame(minWidth: 900, minHeight: 600)
@@ -41,6 +42,15 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detail: some View {
+        if model.isShowingSmartClean {
+            SmartCleanPane(model: model.smartClean)
+        } else {
+            scanDetail
+        }
+    }
+
+    @ViewBuilder
+    private var scanDetail: some View {
         switch model.phase {
         case .empty:
             EmptyWorkspaceView(model: model)

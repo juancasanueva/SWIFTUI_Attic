@@ -2,12 +2,14 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// The Smart Clean window: one model with its own file-operation queue, undone with the
-/// window's ⌘Z.
-struct SmartCleanWindow: View {
-    static let id = "smart-clean"
+/// Smart Clean in the main window's pane: looks again each time it is shown, stops looking
+/// when it is left, and is undone with the window's ⌘Z.
+struct SmartCleanPane: View {
+    /// The sidebar row's selection tag; no folder path looks like it.
+    static let sidebarTag = "attic:smart-clean"
+
     @Environment(\.undoManager) private var undoManager
-    @State private var model = SmartCleanModel(actions: TrashActions())
+    let model: SmartCleanModel
 
     var body: some View {
         SmartCleanView(model: model, undoManager: undoManager)
@@ -15,7 +17,6 @@ struct SmartCleanWindow: View {
             .onChange(of: undoManager) { _, manager in model.actions.undoManager = manager }
             .task { await model.lookAgain() }
             .onDisappear { model.stopScanning() }
-            .frame(minWidth: 560, minHeight: 520)
     }
 }
 

@@ -80,9 +80,16 @@ struct SidebarView: View {
 
     private var selectedPath: Binding<String?> {
         Binding(
-            get: { model.target?.path },
+            get: { model.isShowingSmartClean ? SmartCleanPane.sidebarTag : model.target?.path },
             set: { path in
-                if let path, path != model.target?.path { model.scan(URL(fileURLWithPath: path)) }
+                guard let path else { return }
+                if path == SmartCleanPane.sidebarTag {
+                    model.showSmartClean()
+                } else if path == model.target?.path {
+                    model.showScan()
+                } else {
+                    model.scan(URL(fileURLWithPath: path))
+                }
             })
     }
 
@@ -105,7 +112,9 @@ struct SidebarView: View {
                 SidebarSectionTitle("Recent Scans")
             }
             Section {
-                SmartCleanRow()
+                SidebarRow(title: "Smart Clean", detail: nil, symbol: "sparkles.rectangle.stack")
+                    .tag(SmartCleanPane.sidebarTag)
+                    .help("Space back, safely: nine suggestions, Trash first, with Undo")
             } header: {
                 SidebarSectionTitle("Clean Up")
             }
@@ -141,21 +150,6 @@ private struct SidebarSectionTitle: View {
 
     var body: some View {
         Text(title).font(.title2.weight(.semibold))
-    }
-}
-
-private struct SmartCleanRow: View {
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        Button { openWindow(id: SmartCleanWindow.id) } label: {
-            Label("Smart Clean", systemImage: "sparkles.rectangle.stack")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .selectionDisabled()
-        .help("Space back, safely: nine suggestions, Trash first, with Undo")
     }
 }
 
