@@ -4,6 +4,8 @@ A native macOS disk space analyzer written in Swift and SwiftUI. Scan a folder o
 see where the space went in a sunburst or treemap, and move what you no longer need to the
 Trash.
 
+**Website:** [attic-macos.vercel.app](https://attic-macos.vercel.app), with a live demo of the sunburst, the treemap and Move to Trash.
+
 ![Attic showing a sunburst chart, file browser and inspector for a scanned folder](docs/images/attic.png)
 
 ## Features
